@@ -21,12 +21,12 @@ namespace
 {
     template <typename FirstType, template <typename, typename> class VectorImpl, typename... TArgs>
     IAggregateFunction *
-    createVectorWithTwoNumericTypesSecond(const IDataType & second_type, const DataTypes & types, const Array & params, TArgs &&... args)
+    createBSIVectorWithTwoNumericTypesSecond(const IDataType & second_type, const DataTypes & types, const Array & params, TArgs &&... args)
     {
         WhichDataType which(second_type);
 #define DISPATCH(TYPE) \
     if (which.idx == TypeIndex::TYPE) \
-        return new AggregateFunctionNumericIndexedVector<FirstType, TYPE, VectorImpl, std::decay_t<TArgs>...>( \
+        return new AggregateFunctionNumericIndexedVector<VectorImpl<FirstType, TYPE>, std::decay_t<TArgs>...>( \
             types, params, std::forward<TArgs>(args)...);
         FOR_NUMERIC_INDEXED_VECTOR_VALUE_TYPES(DISPATCH)
 #undef DISPATCH
@@ -34,13 +34,13 @@ namespace
     }
 
     template <template <typename, typename> class VectorImpl, typename... TArgs>
-    IAggregateFunction * createVectorWithTwoNumericTypesFirst(
+    IAggregateFunction * createBSIVectorWithTwoNumericTypesFirst(
         const IDataType & first_type, const IDataType & second_type, const DataTypes & types, const Array & params, TArgs &&... args)
     {
         WhichDataType which(first_type);
 #define DISPATCH(TYPE) \
     if (which.idx == TypeIndex::TYPE) \
-        return createVectorWithTwoNumericTypesSecond<TYPE, VectorImpl>(second_type, types, params, std::forward<TArgs>(args)...);
+        return createBSIVectorWithTwoNumericTypesSecond<TYPE, VectorImpl>(second_type, types, params, std::forward<TArgs>(args)...);
         FOR_NUMERIC_INDEXED_VECTOR_INDEX_TYPES(DISPATCH)
 #undef DISPATCH
         return nullptr;
@@ -82,14 +82,18 @@ namespace
                 "The type {} of argument for aggregate function {} is illegal, because it cannot be used in Bitmap operations",
                     argument_types[0]->getName(), name);
 
-        WhichDataType which(argument_types[1]->getTypeId());
-        if (!which.isNativeUInt() && !which.isNativeInt() && !which.isFloat())
+        WhichDataType first_which(argument_types[0]->getTypeId());
+        if (numeric_index_vector_type == "BSI" and (first_which.isUInt64() or first_which.isInt64()))
+            throw Exception(ErrorCodes::ILLEGAL_TYPE_OF_ARGUMENT, "First argument type doesn't support UInt64/Int64 in BSI");
+
+        WhichDataType second_which(argument_types[1]->getTypeId());
+        if (!second_which.isNativeUInt() && !second_which.isNativeInt() && !second_which.isFloat())
             throw Exception(ErrorCodes::ILLEGAL_TYPE_OF_ARGUMENT, "Second argument type must be NativeUInt or NativeInt or Float");
 
         AggregateFunctionPtr res = nullptr;
         if (numeric_index_vector_type == "BSI")
         {
-            res = std::shared_ptr<const IAggregateFunction>(createVectorWithTwoNumericTypesFirst<BSINumericIndexedVector>(
+            res = std::shared_ptr<const IAggregateFunction>(createBSIVectorWithTwoNumericTypesFirst<BSINumericIndexedVector>(
                 *argument_types[0], *argument_types[1], argument_types, parameters, integer_bit_num, fraction_bit_num));
         }
 

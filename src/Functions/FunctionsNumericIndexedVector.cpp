@@ -8,7 +8,17 @@ namespace DB
 
 REGISTER_FUNCTION(NumericIndexedVector)
 {
-    factory.registerFunction<FunctionNumericIndexedVectorAdd>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseAdd>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseSubtract>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseMultiply>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseDivide>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseEqual>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseNotEqual>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseLess>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseLessEqual>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseGreater>();
+    factory.registerFunction<FunctionNumericIndexedVectorPointwiseGreaterEqual>();
+    factory.registerFunction<FunctionNumericIndexedVectorGetValueImpl>();
     factory.registerFunction<FunctionNumericIndexedVectorCardinality>();
     factory.registerFunction<FunctionNumericIndexedVectorAllValueSum>();
     factory.registerFunction<FunctionNumericIndexedVectorShortDebugString>();

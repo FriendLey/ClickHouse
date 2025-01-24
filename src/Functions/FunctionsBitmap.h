@@ -14,6 +14,7 @@
 #include <Functions/IFunction.h>
 #include <Common/typeid_cast.h>
 #include <Common/assert_cast.h>
+#include <Common/logger_useful.h>
 
 
 // TODO include this last because of a broken roaring header. See the comment
@@ -214,6 +215,8 @@ private:
             {
                 bitmap_data.roaring_bitmap_with_small_set.add(input_data[pos]);
             }
+            Poco::Logger * log = &Poco::Logger::get("DEBUGDEBUG-multiplyHardware");
+            LOG_DEBUG(log, "bitmap_data init: {}", static_cast<UInt32>(bitmap_data.init));
         }
         return col_to;
     }
@@ -304,6 +307,8 @@ private:
         {
             const AggregateFunctionGroupBitmapData<T> & bitmap_data_1
                 = *reinterpret_cast<const AggregateFunctionGroupBitmapData<T> *>(column->getData()[i]);
+            Poco::Logger * log = &Poco::Logger::get("DEBUGDEBUG-BitmapToArray");
+            LOG_DEBUG(log, "bitmap_data init: {}", static_cast<UInt32>(bitmap_data_1.init));
             UInt64 count = bitmap_data_1.roaring_bitmap_with_small_set.rb_to_array(res_data);
             res_offset += count;
             res_offsets.emplace_back(res_offset);

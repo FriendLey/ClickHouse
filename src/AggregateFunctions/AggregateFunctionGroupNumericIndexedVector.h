@@ -13,25 +13,28 @@
 namespace DB
 {
 
-template <typename IndexType, typename ValueType, template <typename, typename> class VectorImpl, typename... TArgs>
+template <typename VectorImpl, typename... TArgs>
 class AggregateFunctionNumericIndexedVector final : public IAggregateFunctionDataHelper<
-                                                        AggregateFunctionGroupNumericIndexedVectorData<IndexType, ValueType, VectorImpl>,
-                                                        AggregateFunctionNumericIndexedVector<IndexType, ValueType, VectorImpl, TArgs...>>
+                                                        AggregateFunctionGroupNumericIndexedVectorData<VectorImpl>,
+                                                        AggregateFunctionNumericIndexedVector<VectorImpl, TArgs...>>
 {
 protected:
     std::tuple<TArgs...> init_args_tuple;
 
 public:
+    using IndexType = typename VectorImpl::IndexType;
+    using ValueType = typename VectorImpl::ValueType;
+
     template <typename... IArgs>
     explicit AggregateFunctionNumericIndexedVector(const DataTypes & types, const Array & params, IArgs &&... args)
         : IAggregateFunctionDataHelper<
-            AggregateFunctionGroupNumericIndexedVectorData<IndexType, ValueType, VectorImpl>,
-            AggregateFunctionNumericIndexedVector<IndexType, ValueType, VectorImpl, TArgs...>>({types}, {params}, createResultType())
+            AggregateFunctionGroupNumericIndexedVectorData<VectorImpl>,
+            AggregateFunctionNumericIndexedVector<VectorImpl, TArgs...>>({types}, {params}, createResultType())
         , init_args_tuple(std::tuple<TArgs...>(std::forward<IArgs>(args)...))
     {
     }
 
-    String getName() const override { return AggregateFunctionGroupNumericIndexedVectorData<IndexType, ValueType, VectorImpl>::name(); }
+    String getName() const override { return AggregateFunctionGroupNumericIndexedVectorData<VectorImpl>::name(); }
 
     static DataTypePtr createResultType() { return std::make_shared<DataTypeNumber<Float64>>(); }
 
@@ -39,7 +42,7 @@ public:
 
     void add(AggregateDataPtr __restrict place, const IColumn ** columns, size_t row_num, Arena *) const override
     {
-        AggregateFunctionGroupNumericIndexedVectorData<IndexType, ValueType, VectorImpl> & data_lhs = this->data(place);
+        AggregateFunctionGroupNumericIndexedVectorData<VectorImpl> & data_lhs = this->data(place);
         if (!data_lhs.init)
         {
             data_lhs.init = true;
@@ -52,13 +55,13 @@ public:
         IndexType index = assert_cast<const ColumnVector<IndexType> &>(*columns[0]).getData()[row_num];
         ValueType value = assert_cast<const ColumnVector<ValueType> &>(*columns[1]).getData()[row_num];
 
-        data_lhs.vector.addIndexValue(index, value);
+        data_lhs.vector.addValue(index, value);
     }
 
     void merge(AggregateDataPtr __restrict place, ConstAggregateDataPtr rhs, Arena *) const override
     {
-        AggregateFunctionGroupNumericIndexedVectorData<IndexType, ValueType, VectorImpl> & data_lhs = this->data(place);
-        const AggregateFunctionGroupNumericIndexedVectorData<IndexType, ValueType, VectorImpl> & data_rhs = this->data(rhs);
+        AggregateFunctionGroupNumericIndexedVectorData<VectorImpl> & data_lhs = this->data(place);
+        const AggregateFunctionGroupNumericIndexedVectorData<VectorImpl> & data_rhs = this->data(rhs);
 
         if (!data_rhs.init)
             return;
