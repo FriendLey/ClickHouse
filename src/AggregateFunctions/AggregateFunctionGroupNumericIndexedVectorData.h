@@ -1318,6 +1318,31 @@ public:
         return total_bm.size();
     }
 
+
+    // Converts the internal bit-level representation into an index-to-value mapping.
+    // The mapping is then stored into the provided `indexes_pod` and `values_pod` arrays.
+    //
+    // @param indexes_pod    [out] Array that will be filled with the indexes.
+    // @param values_pod     [out] Array that will be filled with the corresponding values.
+    // @return               The number of unique indexes in the mapping.
+    //
+    // Processing logic:
+    // 1. Unsigned integer path:
+    //    - Iterate through all bits (0 to total_bit_num-1)
+    //    - Merge bit information into index2value map
+    //    - Apply precision scaling using fraction_bit_num
+    //
+    // 2. Signed integer/float path:
+    //    - Uses highest bit (total_bit_num-1) as sign bit
+    //    - Separates processing for positive/negative indices:
+    //      * Positive values: Direct bit merging
+    //      * Negative values: Two's complement handling with sign adjustment
+    //    - Final values include sign correction and precision scaling
+    //
+    // Implementation notes:
+    // - Uses Roaring bitmap library for efficient bit set operations
+    // - fraction_bit_num controls fixed-point precision scaling
+    // - Result values are statically cast to target type
     UInt64 toIndexValueMap(PaddedPODArray<IndexType> & indexes_pod, PaddedPODArray<ValueType> & values_pod) const
     {
         const UInt32 total_bit_num = getTotalBitNum();
@@ -1325,9 +1350,9 @@ public:
             return 0;
         DataTypePtr value_type = std::make_shared<DataTypeNumber<ValueType>>();
         auto which = WhichDataType(value_type);
-        std::map<IndexType, Int64> index2value;
         if (which.isUInt())
         {
+            std::map<IndexType, UInt64> index2value;
             for (size_t i = 0; i < total_bit_num; ++i)
             {
                 PaddedPODArray<IndexType> indexes;
@@ -1337,9 +1362,16 @@ public:
                     index2value[indexes[j]] |= (1ULL << i);
                 }
             }
+            for (auto & [index, value] : index2value)
+            {
+                indexes_pod.emplace_back(index);
+                values_pod.emplace_back(static_cast<ValueType>(value / (std::pow(2.0, fraction_bit_num))));
+            }
+            return index2value.size();
         }
         else if (which.isInt() || which.isFloat())
         {
+            std::map<IndexType, Int64> index2value;
             UInt32 sign_bit_index = total_bit_num - 1;
             Roaring all_negative_indexes;
             all_negative_indexes.rb_or(*getDataArrayAt(sign_bit_index));
@@ -1375,18 +1407,18 @@ public:
                 index2value[all_negative_indexes_array[i]] += 1;
                 index2value[all_negative_indexes_array[i]] *= -1;
             }
+
+            for (auto & [index, value] : index2value)
+            {
+                indexes_pod.emplace_back(index);
+                values_pod.emplace_back(static_cast<ValueType>(value / (std::pow(2.0, fraction_bit_num))));
+            }
+            return index2value.size();
         }
         else
         {
             throw Exception(ErrorCodes::BAD_ARGUMENTS, "Unsupported value type for getAllValueSum()");
         }
-
-        for (auto & [index, value] : index2value)
-        {
-            indexes_pod.emplace_back(index);
-            values_pod.emplace_back(static_cast<ValueType>(value / (std::pow(2.0, fraction_bit_num))));
-        }
-        return index2value.size();
     }
 
     void read(DB::ReadBuffer & in)
