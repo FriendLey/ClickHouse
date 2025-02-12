@@ -737,10 +737,7 @@ public:
                     UInt64 p = bit_buffer[i][j];
                     // ASM optimized
                     ASM_SHIFT_RIGHT(p, shift, tmp_offset);
-                    // ctn->words[tmp_offset] |= 1ULL << (p & 0x3f);
-                    UInt64 load = ctn->words[tmp_offset];
-                    load |= (1ULL << p);
-                    ctn->words[tmp_offset] = load;
+                    ctn->words[tmp_offset] |= 1ULL << (p & 0x3f);
                 }
                 ctn->cardinality += cnt[i];
             }
